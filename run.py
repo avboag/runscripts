@@ -30,7 +30,7 @@ script = """\
 
 mv queued running
 
-../{executable} > out 2> error
+(cd ..; {executable} > out 2> error)
 
 rm running
 """.format(params)
