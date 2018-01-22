@@ -1,27 +1,34 @@
 #!/usr/bin/env python3
 
+import argparse
 import glob
 import os
 import shutil
 import subprocess
 import sys
 import time
-import yaml
 
-with open(sys.argv[1], 'r') as f:
-    params = yaml.safe_load(f)
+parser = argparse.ArgumentParser(description = 'Run planned runs.')
+parser.add_argument('--sleep_time', type=float, default = 1.)
+parser.add_argument('--max_num_active_processes', type=int, default = 1)
+parser.add_argument('--executor', default = 'nohup')
+parser.add_argument('--preamble')
+parser.add_argument('executable')
+args = parser.parse_args()
 
-executioner = params['executioner']
+sleep_time = args.sleep_time
+max_num_active_processes = args.max_num_active_processes
+executor = args.executor
+executable = args.executable
 
-try:
-    sleep_time = int(params['sleep_time'])
-except KeyError:
-    sleep_time = 1
+if args.preamble is None:
+    preamble = ''
+else:
+    with open(args.preamble, 'r') as f:
+        preamble = f.read()
 
 def count_running():
-    return len(glob.iglob('**/queued')) + len(glob.iglob('**/running'))
-
-max_num_active_processes = int(params['max_num_active_processes'])
+    return len(glob.glob('**/queued')) + len(glob.glob('**/running'))
 
 script = """\
 #!/usr/bin/env bash
@@ -30,10 +37,10 @@ script = """\
 
 mv queued running
 
-(cd ..; {executable} > out 2> error)
+../{executable} > out 2> error
 
 rm running
-""".format(params)
+""".format(**globals())
 
 with open('script', 'w') as f:
     f.write(script)
@@ -44,9 +51,9 @@ for plan_indicator in glob.iglob('**/planned'):
     d = os.path.dirname(plan_indicator)
     print(d)
     while count_running() >= max_num_active_processes:
-        print('{} jobs running, sleeping'.format(count_running()))
+        print('{} jobs running, sleeping for {} seconds'.format(count_running(), sleep_time))
         time.sleep(sleep_time)
 
     os.rename(plan_indicator, d + '/queued')
 
-    subprocess.Popen("cd {d}; {executioner} ../script".format(**globals()), shell = True, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+    subprocess.Popen('cd {d}; {executor} ../script'.format(**globals()), shell = True, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
