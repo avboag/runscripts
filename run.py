@@ -21,6 +21,10 @@ max_num_active_processes = args.max_num_active_processes
 executor = args.executor
 executable = args.executable
 
+executable = executable.split()
+executable[0] = os.path.abspath(executable[0])
+executable = ' '.join(executable)
+
 if args.preamble is None:
     preamble = ''
 else:
@@ -28,7 +32,7 @@ else:
         preamble = f.read()
 
 def count_running():
-    return len(glob.glob('**/queued')) + len(glob.glob('**/running'))
+    return len(glob.glob('**/queued', recursive = True)) + len(glob.glob('**/running', recursive = True))
 
 script = """\
 #!/usr/bin/env bash
@@ -37,7 +41,7 @@ script = """\
 
 mv queued running
 
-../{executable} > out 2> error
+{executable} > out 2> error
 
 rm running
 """.format(**globals())
@@ -47,7 +51,9 @@ with open('script', 'w') as f:
 
 os.chmod('script', 0o700)
 
-for plan_indicator in glob.iglob('**/planned'):
+script_abspath = os.path.abspath('script')
+
+for plan_indicator in glob.iglob('**/planned', recursive = True):
     d = os.path.dirname(plan_indicator)
     print(d)
     while count_running() >= max_num_active_processes:
@@ -56,4 +62,4 @@ for plan_indicator in glob.iglob('**/planned'):
 
     os.rename(plan_indicator, d + '/queued')
 
-    subprocess.Popen('cd {d}; {executor} ../script'.format(**globals()), shell = True, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+    subprocess.Popen('cd {d}; {executor} {script_abspath}'.format(**globals()), shell = True, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
