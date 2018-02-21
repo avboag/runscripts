@@ -53,7 +53,7 @@ os.chmod('script', 0o700)
 
 script_abspath = os.path.abspath('script')
 
-for plan_indicator in glob.iglob('**/planned', recursive = True):
+for plan_indicator in sorted(glob.iglob('**/planned', recursive = True)):
     d = os.path.dirname(plan_indicator)
     print(d)
     while count_running() >= max_num_active_processes:
